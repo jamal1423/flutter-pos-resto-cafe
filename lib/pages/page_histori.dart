@@ -1,10 +1,15 @@
-// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
+// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables, unnecessary_import, depend_on_referenced_packages
 
+import 'dart:convert';
+
+import 'package:app_pos/pages/page_login.dart';
+import 'package:app_pos/public/apiUrl.dart';
 import 'package:app_pos/public/public.dart';
 import 'package:app_pos/widgets/appbarcustom.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:http/http.dart' as http;
 
 class PageHistori extends StatefulWidget {
   const PageHistori({super.key});
@@ -15,6 +20,110 @@ class PageHistori extends StatefulWidget {
 
 class _PageHistoriState extends State<PageHistori> {
   TextEditingController searchData = TextEditingController();
+
+  String getToken = '';
+  String getUsername = '';
+  String statusToken = '';
+  String getFullName = '';
+  String getRoleUser = '';
+
+  getPref()async{
+    getToken = await readPref('dtToken') ?? '-';
+    getUsername = await readPref('username') ?? '-';
+    getFullName = await readPref('fullname') ?? '-';
+    getRoleUser = await readPref('role') ?? '-';
+    setState(() {
+      print("token : "+getToken);
+      getToken;
+      getUsername;
+      getFullName;
+      getRoleUser;
+      validasiToken();
+    });
+  }
+
+  validasiToken() async {
+    try {
+      final response = await http.get(
+        Uri.parse("${baseUrl}api/check-token"),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Access-Control-Allow-Origin': '*',
+          'Accept': '*/*',
+          'Authorization': 'Bearer $getToken'
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final output = jsonDecode(response.body);
+        if (context.mounted) {
+          setState(() {
+            statusToken = output['message'] ?? "Token ditemukan tapi tidak ada pesan.";
+          });
+          
+          if(statusToken != 'token_valid'){
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  "Token kadaluarsa, harap login kembali.",
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            );
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (BuildContext context) => PageLogin(),
+              ),
+              (route) => false,
+            );
+          }
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "Token kadaluarsa, harap login kembali.",
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+          );
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (BuildContext context) => PageLogin(),
+            ),
+            (route) => false,
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Token kadaluarsa, harap login kembali.",
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+        );
+        Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (BuildContext context) => PageLogin(),
+        ),
+        (route) => false,
+      );
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    getPref();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +147,7 @@ class _PageHistoriState extends State<PageHistori> {
                       ),
                       Row(
                         children: [
-                          Text("Mochammad Jamal", style: TextStyle(color: Colors.white, fontSize: 12)),
+                          Text(getFullName.toString().toUpperCase(), style: TextStyle(color: Colors.white, fontSize: 12)),
                         ],
                       ),
                       

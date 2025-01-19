@@ -1,8 +1,16 @@
-// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables, avoid_unnecessary_containers
+// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables, avoid_unnecessary_containers, unnecessary_brace_in_string_interps
 
+import 'dart:convert';
+
+import 'package:app_pos/main.dart';
+import 'package:app_pos/public/apiUrl.dart';
 import 'package:app_pos/public/public.dart';
+import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 class PageLogin extends StatefulWidget {
   const PageLogin({super.key});
@@ -13,7 +21,7 @@ class PageLogin extends StatefulWidget {
 
 class _PageLoginState extends State<PageLogin> {
   TextEditingController username = TextEditingController();
-  TextEditingController passwd = TextEditingController();
+  TextEditingController password = TextEditingController();
 
   bool sPass = true;
 
@@ -32,6 +40,121 @@ class _PageLoginState extends State<PageLogin> {
     setState(() {
       sPass = true;
     });
+  }
+
+  void validateInputs() {
+    
+    if(username.text.isEmpty || password.text.isEmpty){
+      // modalAlert(context);
+      AwesomeDialog(
+        context: context,
+        dismissOnBackKeyPress: false,
+        dismissOnTouchOutside: false,
+        dialogType: DialogType.error,
+        headerAnimationLoop: true,
+        animType: AnimType.bottomSlide,
+        title: 'ERROR',
+        reverseBtnOrder: true,
+        btnOkText: 'Ok',
+        btnOkColor: Colors.red,
+        btnOkOnPress: () {
+        },
+        desc: 'Username / Password tidak boleh kosong.',
+      ).show();
+    }else{
+      doLogin(username.text, password.text);
+      // modalLoading();
+    }
+  }
+
+  Future<void> doLogin(String username, String password) async {
+    // Menampilkan dialog loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          width: 60.0,
+          height: 60.0,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4.0),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.all(12.0),
+            child: CupertinoActivityIndicator(),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final response = await http.post(
+        Uri.parse("${baseUrl}api/login"),
+        body: {
+          "username": username,
+          "password": password,
+        },
+      );
+
+      final output = jsonDecode(response.body);
+
+      if (response.statusCode == 201) {
+        if (context.mounted) {
+          Navigator.pop(context);
+          saveSession(output['data']['nama'],output['data']['username'],output['data']['role'],output['data']['foto'], output['token']);
+        }
+      } else {
+        debugPrint("Login Failed: $output");
+
+        if (context.mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "Error: ${output['message'] ?? 'Gagal Login'}",
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("Error: $e");
+
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Terjadi kesalahan, coba beberapa saat lagi.: $e",
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+
+  saveSession(String nama, String username, String role, String foto, String dtToken) async {
+    SharedPreferences pref = await SharedPreferences.getInstance();
+    await savePref('fullname', nama.toString());
+    await savePref('username', username.toString());
+    await savePref('role', role.toString());
+    await savePref('foto', foto.toString());
+    await savePref('dtToken', dtToken.toString());
+    await pref.setBool("is_login", true);
+
+    if(context.mounted){
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (BuildContext context) => MyHomePage(title: 'Dashboard'),
+        ),
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -70,65 +193,78 @@ class _PageLoginState extends State<PageLogin> {
                     SizedBox(height: 10),
                     Text("Sign In", style: TextStyle(fontSize: 25, color: Colors.white,fontWeight: FontWeight.bold)),
                     SizedBox(height: 30),
-                    textFormControl(
-                      context,
-                      astext: textAs.asString,
-                      xtextEditingController: username,
-                      xlabel: "Username",
-                      xhintText: 'Username',
-                      xhintColor: Colors.grey,
-                      xlabelColor: Colors.white,
-                      xIcon: Icons.account_circle_rounded,
-                      onSuffixClick: (){},
-                      xsuffixColorIcon: Colors.red,
-                      xColorIcon: Colors.grey,
-                      xborderBottomLeft: 15,
-                      xborderTopLeft: 15,
-                      xborderFocusBottomLeft: 15,
-                      xborderFocusTopLeft: 15,
-                      xborderBottomRight: 15,
-                      xborderFocusBottomRight: 15,
-                      xborderFocusTopRight: 15,
-                      xborderTopRight: 15,
-                    ),
-                    SizedBox(height: 20),
-                    textFormControl(
-                      context,
-                      astext: textAs.asString,
-                      passwd: sPass ? true : false,
-                      xtextEditingController: passwd,
-                      xlabel: "Password",
-                      xhintText: 'Password',
-                      xhintColor: Colors.grey,
-                      xlabelColor: Colors.white,
-                      xIcon: Icons.lock_outline_rounded,
-                      xsuffixIcon: sPass ? Icons.visibility_off : Icons.remove_red_eye,
-                      onSuffixClick: (){sPass ? showPass() : hidePass();},
-                      xsuffixColorIcon: Colors.red,
-                      xColorIcon: Colors.grey,
-                      xborderBottomLeft: 15,
-                      xborderTopLeft: 15,
-                      xborderFocusBottomLeft: 15,
-                      xborderFocusTopLeft: 15,
-                      xborderBottomRight: 15,
-                      xborderFocusBottomRight: 15,
-                      xborderFocusTopRight: 15,
-                      xborderTopRight: 15,
-                    ),
-                    SizedBox(height: 30),
-                    Container(
-                      width: MediaQuery.of(context).size.width / 1,
-                      decoration: BoxDecoration(
-                        color: Color.fromARGB(255, 1, 94, 110),
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(15.0),
-                          child: Text("Login", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-                        )
-                      ),
+                    Form(
+                      key: formKey,
+                      child: Column(
+                        children: [
+                          textFormControl(
+                            context,
+                            astext: textAs.asString,
+                            xtextEditingController: username,
+                            xlabel: "Username",
+                            xhintText: 'Username',
+                            xhintColor: Colors.grey,
+                            xlabelColor: Colors.white,
+                            xIcon: Icons.account_circle_rounded,
+                            onSuffixClick: (){},
+                            xsuffixColorIcon: Colors.red,
+                            xColorIcon: Colors.grey,
+                            xborderBottomLeft: 15,
+                            xborderTopLeft: 15,
+                            xborderFocusBottomLeft: 15,
+                            xborderFocusTopLeft: 15,
+                            xborderBottomRight: 15,
+                            xborderFocusBottomRight: 15,
+                            xborderFocusTopRight: 15,
+                            xborderTopRight: 15,
+                          ),
+                          SizedBox(height: 20),
+                          textFormControl(
+                            context,
+                            astext: textAs.asString,
+                            passwd: sPass ? true : false,
+                            xtextEditingController: password,
+                            xlabel: "Password",
+                            xhintText: 'Password',
+                            xhintColor: Colors.grey,
+                            xlabelColor: Colors.white,
+                            xIcon: Icons.lock_outline_rounded,
+                            xsuffixIcon: sPass ? Icons.visibility_off : Icons.remove_red_eye,
+                            onSuffixClick: (){sPass ? showPass() : hidePass();},
+                            xsuffixColorIcon: Colors.red,
+                            xColorIcon: Colors.grey,
+                            xborderBottomLeft: 15,
+                            xborderTopLeft: 15,
+                            xborderFocusBottomLeft: 15,
+                            xborderFocusTopLeft: 15,
+                            xborderBottomRight: 15,
+                            xborderFocusBottomRight: 15,
+                            xborderFocusTopRight: 15,
+                            xborderTopRight: 15,
+                          ),
+                          SizedBox(height: 30),
+                          InkWell(
+                            onTap: (){
+                              validateInputs();
+                            },
+                            child: Container(
+                              width: MediaQuery.of(context).size.width / 1,
+                              decoration: BoxDecoration(
+                                color: Color.fromARGB(255, 1, 94, 110),
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(15.0),
+                                  child: Text("Login", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                                )
+                              ),
+                            ),
+                          )
+                        ],
+                      )
                     )
+                    
                   ],
                 ),
               ),
